@@ -1,0 +1,33 @@
+{
+  "name": "ugc-contentmaschine",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "worker": "tsx --env-file=.env worker/index.ts",
+    "db:push": "prisma db push",
+    "db:seed": "tsx --env-file=.env prisma/seed.ts",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "@prisma/client": "^6.19.3",
+    "next": "^15.5.26",
+    "node-cron": "^4.6.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "@types/node-cron": "^3.0.11",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "prisma": "^6.19.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  }
+}

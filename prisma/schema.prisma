@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// SQLite für MVP. Für Produktion: provider = "postgresql" (z.B. Supabase) + DATABASE_URL tauschen.
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Brand {
+  id          String  @id @default(cuid())
+  name        String
+  description String  // Was verkauft/macht die Marke
+  tone        String  // Tonalität, z.B. "locker, du-Form, ehrlich"
+  audience    String  // Zielgruppe
+  cta         String  // Standard Call-to-Action
+  hashtags    String  // Basis-Hashtags, kommagetrennt
+  rules       String  @default("") // Dos & Don'ts
+  language    String  @default("de")
+  avatars     Avatar[]
+  runs        Run[]
+}
+
+model Avatar {
+  id           String  @id @default(cuid())
+  name         String
+  persona      String  // Charakter/Story des Influencers
+  imageUrl     String  // Festes Avatar-Bild (Higgsfield Soul / eigenes Foto, öffentlich erreichbar)
+  voiceId      String  // ElevenLabs Voice-ID (feste Stimme)
+  motionPrompt String  @default("UGC selfie video, handheld phone camera, natural lighting, person talking directly to camera, authentic, subtle gestures")
+  brandId      String
+  brand        Brand   @relation(fields: [brandId], references: [id])
+  contents     Content[]
+}
+
+model Run {
+  id         String    @id @default(cuid())
+  niche      String
+  goal       String    @default("")
+  platforms  String    @default("instagram,tiktok,facebook")
+  count      Int       @default(3)       // Anzahl Videos pro Run
+  status     String    @default("NEW")   // NEW | RESEARCHING | DONE | FAILED
+  research   String?   // JSON: Trends/Hooks/Formate
+  error      String?
+  brandId    String
+  brand      Brand     @relation(fields: [brandId], references: [id])
+  avatarId   String
+  createdAt  DateTime  @default(now())
+  contents   Content[]
+}
+
+model Content {
+  id           String    @id @default(cuid())
+  runId        String
+  run          Run       @relation(fields: [runId], references: [id])
+  avatarId     String
+  avatar       Avatar    @relation(fields: [avatarId], references: [id])
+  // Status-Maschine – siehe src/lib/status.ts
+  status       String    @default("SCRIPT_REVIEW")
+  title        String
+  trend        String    // Trend/Idee, auf der das Video basiert
+  hook         String
+  script       String    // Gesprochener Text (Voiceover)
+  scene        String    // Szenen-/Motion-Prompt für Higgsfield
+  caption      String
+  hashtags     String
+  duration     Int       @default(15) // 5 | 10 | 15 Sekunden
+  audioUrl     String?
+  hfRequestId  String?
+  videoUrl     String?
+  platforms    String    @default("instagram,tiktok,facebook")
+  scheduledAt  DateTime?
+  publishId    String?
+  error        String?
+  attempts     Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  events       Event[]
+}
+
+model Event {
+  id        String   @id @default(cuid())
+  contentId String?
+  content   Content? @relation(fields: [contentId], references: [id])
+  runId     String?
+  type      String
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model Setting {
+  key   String @id
+  value String
+}
