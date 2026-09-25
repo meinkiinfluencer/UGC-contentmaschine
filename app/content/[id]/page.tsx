@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { label } from "@/lib/status";
 import { parseSegments, totalSeconds } from "@/lib/segments";
 import { toZonedInput } from "@/lib/slots";
+import { postText } from "@/lib/pipeline";
+import CopyButton from "../../components/CopyButton";
 import { contentAction, saveContent } from "../../actions";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +32,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
             <form action={contentAction.bind(null, c.id, "reject")}><button className="err">✕ Ablehnen</button></form>
           </>
         )}
-        {["VIDEO_REVIEW", "FAILED", "REJECTED"].includes(c.status) && (
+        {["VIDEO_REVIEW", "READY", "FAILED", "REJECTED"].includes(c.status) && (
           <form action={contentAction.bind(null, c.id, "rerender")}><button>✎ Zurück zu Script (neu produzieren)</button></form>
         )}
         {c.status === "FAILED" && <form action={contentAction.bind(null, c.id, "retry")}><button>↻ Retry</button></form>}
@@ -72,6 +74,24 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
           <div className="row"><button className="p">Speichern</button></div>
         </form>
         <div>
+          {["READY", "POSTED"].includes(c.status) && c.videoUrl && (
+            <div className="panel" style={{ marginBottom: 16 }}>
+              <h2>📲 Posten ({c.platforms.replace(/,/g, " · ")})</h2>
+              {c.scheduledAt && (
+                <p className="h">Geplant: {c.scheduledAt.toLocaleString("de-DE", { timeZone: c.brand.timezone, dateStyle: "full", timeStyle: "short" })}</p>
+              )}
+              <label>Caption + Hashtags</label>
+              <textarea readOnly rows={7} defaultValue={postText(c)} />
+              <div className="row">
+                <a className="btn" href={`${c.videoUrl}?download=${encodeURIComponent(c.title.slice(0, 40))}`}>⬇ Reel herunterladen</a>
+                <CopyButton text={postText(c)} label="📋 Caption kopieren" />
+                {c.status === "READY"
+                  ? <form action={contentAction.bind(null, c.id, "posted")}><button className="ok">✓ Als gepostet markieren</button></form>
+                  : <form action={contentAction.bind(null, c.id, "unposted")}><button>↩ Doch nicht gepostet</button></form>}
+              </div>
+              {c.postedAt && <p className="h">Gepostet am {c.postedAt.toLocaleString("de-DE", { timeZone: c.brand.timezone })}</p>}
+            </div>
+          )}
           <div className="panel">
             <h2>Reel</h2>
             {c.videoUrl ? <video src={c.videoUrl} controls /> : <p className="h">Noch kein Video.</p>}

@@ -11,7 +11,7 @@ import { nextFreeSlot } from "./slots";
 import { PRICES, track } from "./costs";
 import { parseSegments, type Segment } from "./segments";
 import { composeReel, mockClip } from "./video";
-import { download, ensureDir, localUrl, saveFile } from "./storage";
+import { download, ensureDir, localUrl, MEDIA_DIR, saveFile } from "./storage";
 
 const MAX_ATTEMPTS = 3;
 const hooks = () => (cfg.publicBaseUrl ? `${cfg.publicBaseUrl}/api/webhooks/higgsfield` : undefined);
@@ -199,13 +199,10 @@ export async function compose(id: string) {
     const out = path.join(dir, "reel.mp4");
     await composeReel({ segments: withClips, workDir: dir, out, musicPath });
 
-    let videoUrl: string;
-    if (cfg.mock) videoUrl = localUrl(out);
-    else if (cfg.publicBaseUrl) videoUrl = `${cfg.publicBaseUrl}${localUrl(out)}`;
-    else videoUrl = await uploadFile(await fs.readFile(out), "video/mp4");
-
-    const next = c.brand.autoApproveVideos ? "VIDEO_APPROVED" : "VIDEO_REVIEW";
-    await db.content.update({ where: { id }, data: { videoUrl, status: next, error: null } });
+    const videoUrl = localUrl(out); // öffentliche URL wird erst beim Auto-Posting erzeugt
+    const next = c.brand.autoApproveVideos ? approvedStatus(c.brand) : "VIDEO_REVIEW";
+    const plan = next === "READY" && !c.scheduledAt ? { scheduledAt: await suggestSlot(c.brand) } : {};
+    await db.content.update({ where: { id }, data: { videoUrl, status: next, error: null, ...plan } });
     const secs = segs.reduce((a, s) => a + (s.duration ?? 0), 0);
     await log("video", `Reel fertig (${secs.toFixed(0)} s, ${segs.length} Segmente)`, { contentId: id });
   } catch (e) {
@@ -217,7 +214,30 @@ export async function compose(id: string) {
   }
 }
 
-// ---------- Schritt 5: In Social Media einplanen ----------
+// ---------- Schritt 5: Fertig -> manuell posten ODER Auto-Posting (Stufe 2) ----------
+
+/** Nach Video-Freigabe: manuell = READY (Download), ayrshare = automatisch einplanen */
+export const approvedStatus = (b: { publishMode: string }) => (b.publishMode === "ayrshare" ? "VIDEO_APPROVED" : "READY");
+
+export const postText = (c: { caption: string; hashtags: string }) =>
+  `${c.caption}\n\n${c.hashtags.split(",").filter(Boolean).map((t) => `#${t}`).join(" ")}`;
+
+/** Empfohlener Posting-Termin (Stufe 1: Plan für manuelles Posten) */
+export async function suggestSlot(b: { id: string; postSlots: string; postsPerDay: number; timezone: string }) {
+  const taken = await db.content.findMany({
+    where: { brandId: b.id, status: { in: ["READY", "VIDEO_APPROVED", "PUBLISHING", "SCHEDULED", "POSTED"] }, scheduledAt: { gte: new Date() } },
+    select: { scheduledAt: true },
+  });
+  return nextFreeSlot(taken.map((t) => t.scheduledAt!), b.postSlots.split(",").slice(0, b.postsPerDay), b.timezone);
+}
+
+async function publicVideoUrl(url: string) {
+  if (!url.startsWith("/api/media/")) return url;
+  if (cfg.mock) return url;
+  if (cfg.publicBaseUrl) return `${cfg.publicBaseUrl}${url}`;
+  const file = path.join(MEDIA_DIR, decodeURIComponent(url.slice("/api/media/".length)));
+  return uploadFile(await fs.readFile(file), "video/mp4");
+}
 
 export async function publish(id: string) {
   if (!(await claim(id, "VIDEO_APPROVED", "PUBLISHING"))) return;
@@ -232,10 +252,9 @@ export async function publish(id: string) {
       });
       when = nextFreeSlot(taken.map((t) => t.scheduledAt!), b.postSlots.split(",").slice(0, b.postsPerDay), b.timezone);
     }
-    const tags = c.hashtags.split(",").filter(Boolean).map((t) => `#${t}`).join(" ");
     const postId = await schedulePost({
-      caption: `${c.caption}\n\n${tags}`,
-      videoUrl: c.videoUrl!,
+      caption: postText(c),
+      videoUrl: await publicVideoUrl(c.videoUrl!),
       platforms: c.platforms.split(",").map((p) => p.trim()).filter(Boolean),
       scheduledAt: when,
       profileKey: b.ayrshareProfileKey || undefined,
@@ -260,7 +279,7 @@ export async function autopilot() {
       where: {
         brandId: b.id,
         OR: [
-          { status: { notIn: ["SCHEDULED", "FAILED", "REJECTED"] } },
+          { status: { notIn: ["SCHEDULED", "POSTED", "FAILED", "REJECTED"] } },
           { status: "SCHEDULED", scheduledAt: { gte: new Date() } },
         ],
       },
@@ -329,20 +348,28 @@ export async function tick() {
 // ---------- Dashboard-Aktionen ----------
 
 const TRANSITIONS: Record<string, Record<string, string>> = {
-  approve: { SCRIPT_REVIEW: "SCRIPT_APPROVED", VIDEO_REVIEW: "VIDEO_APPROVED" },
+  approve: { SCRIPT_REVIEW: "SCRIPT_APPROVED" },
+  posted: { READY: "POSTED" },
+  unposted: { POSTED: "READY" },
   reject: { SCRIPT_REVIEW: "REJECTED", VIDEO_REVIEW: "REJECTED" },
-  rerender: { VIDEO_REVIEW: "SCRIPT_REVIEW", FAILED: "SCRIPT_REVIEW", REJECTED: "SCRIPT_REVIEW" },
+  rerender: { VIDEO_REVIEW: "SCRIPT_REVIEW", READY: "SCRIPT_REVIEW", FAILED: "SCRIPT_REVIEW", REJECTED: "SCRIPT_REVIEW" },
 };
 
-export async function act(id: string, action: "approve" | "reject" | "rerender" | "retry") {
-  const c = await db.content.findUniqueOrThrow({ where: { id } });
+export type Action = "approve" | "reject" | "rerender" | "retry" | "posted" | "unposted";
+
+export async function act(id: string, action: Action) {
+  const c = await db.content.findUniqueOrThrow({ where: { id }, include: { brand: true } });
   let to: string | undefined;
   if (action === "retry") {
     const segs = parseSegments(c.segments);
-    to = c.videoUrl ? "VIDEO_APPROVED" : segs.length && segs.every((s) => s.status === "done") ? "RENDERING" : "SCRIPT_APPROVED";
-  } else to = TRANSITIONS[action]?.[c.status];
+    to = c.videoUrl ? approvedStatus(c.brand) : segs.length && segs.every((s) => s.status === "done") ? "RENDERING" : "SCRIPT_APPROVED";
+  } else if (action === "approve" && c.status === "VIDEO_REVIEW") to = approvedStatus(c.brand);
+  else to = TRANSITIONS[action]?.[c.status];
   if (!to) throw new Error(`Aktion ${action} in Status ${c.status} nicht möglich`);
   const data: Record<string, unknown> = { status: to, attempts: 0, error: null };
+  if (to === "READY" && !c.scheduledAt) data.scheduledAt = await suggestSlot(c.brand);
+  if (action === "posted") data.postedAt = new Date();
+  if (action === "unposted") data.postedAt = null;
   if (action === "rerender") {
     data.videoUrl = null;
     data.segments = JSON.stringify(parseSegments(c.segments).map((s) => ({ type: s.type, text: s.text, visual: s.visual, onscreen: s.onscreen, status: "pending" })));

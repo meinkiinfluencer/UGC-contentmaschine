@@ -44,7 +44,7 @@ export default async function BrandPage({ params }: { params: Promise<{ id: stri
           ))}</div>
           <label>Ziel-Länge Reel (Sekunden)</label><input name="targetSeconds" type="number" min={15} max={90} defaultValue={secs} />
 
-          <h2 style={{ marginTop: 20 }}>Autopilot & Posting</h2>
+          <h2 style={{ marginTop: 20 }}>Autopilot & Posting-Plan</h2>
           <div className="row">
             <label className="chk"><input type="checkbox" name="active" defaultChecked={brand?.active ?? true} />Aktiv</label>
             <label className="chk"><input type="checkbox" name="autopilot" defaultChecked={brand?.autopilot} />⚡ Autopilot (Ideen → Posts automatisch)</label>
@@ -61,7 +61,12 @@ export default async function BrandPage({ params }: { params: Promise<{ id: stri
           <div className="row">{PLATFORMS.map((p) => (
             <label key={p} className="chk"><input type="checkbox" name="platforms" value={p} defaultChecked={platforms.includes(p)} />{p}</label>
           ))}</div>
-          <label>Ayrshare Profile-Key (Business-Plan: ein Profil pro Kunde)</label><input name="ayrshareProfileKey" defaultValue={brand?.ayrshareProfileKey} />
+          <label>Veröffentlichung</label>
+          <select name="publishMode" defaultValue={brand?.publishMode ?? "manual"}>
+            <option value="manual">Manuell – Reel herunterladen & selbst posten (Stufe 1)</option>
+            <option value="ayrshare">Automatisch via Ayrshare (Stufe 2)</option>
+          </select>
+          <label>Ayrshare Profile-Key (nur Stufe 2)</label><input name="ayrshareProfileKey" defaultValue={brand?.ayrshareProfileKey} />
           <div className="row"><button className="p">Marke speichern</button></div>
         </form>
 

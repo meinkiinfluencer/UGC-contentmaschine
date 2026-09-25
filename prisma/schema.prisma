@@ -34,7 +34,8 @@ model Brand {
   bufferDays         Int       @default(3)     // so viele Tage Content im Voraus produzieren
   autoApproveScripts Boolean   @default(false)
   autoApproveVideos  Boolean   @default(false)
-  // Publishing
+  // Publishing: "manual" = Reel herunterladen & selbst posten | "ayrshare" = Auto-Posting
+  publishMode        String    @default("manual")
   platforms          String    @default("instagram,tiktok,facebook")
   ayrshareProfileKey String    @default("") // Ayrshare Business: ein Profil pro Kunde
   createdAt          DateTime  @default(now())
@@ -95,7 +96,8 @@ model Content {
   hashtags    String
   videoUrl    String?   // fertig geschnittenes Reel (öffentlich)
   platforms   String    @default("instagram,tiktok,facebook")
-  scheduledAt DateTime?
+  scheduledAt DateTime? // geplanter Termin (manuell: Empfehlung)
+  postedAt    DateTime?
   publishId   String?
   error       String?
   attempts    Int       @default(0)

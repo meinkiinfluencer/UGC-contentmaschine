@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { act, startAvatarGeneration, tick } from "@/lib/pipeline";
+import { act, startAvatarGeneration, tick, type Action } from "@/lib/pipeline";
 import { parseSegments, type Segment } from "@/lib/segments";
 import { fromZonedInput } from "@/lib/slots";
 
@@ -10,7 +10,7 @@ const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const b = (f: FormData, k: string) => f.get(k) === "on";
 const n = (f: FormData, k: string, d: number) => Number(s(f, k)) || d;
 
-export async function contentAction(id: string, action: "approve" | "reject" | "rerender" | "retry") {
+export async function contentAction(id: string, action: Action) {
   await act(id, action);
   revalidatePath("/");
   revalidatePath(`/content/${id}`);
@@ -75,7 +75,7 @@ export async function saveBrand(f: FormData) {
     postSlots: s(f, "postSlots") || "18:00", timezone: s(f, "timezone") || "Europe/Berlin", bufferDays: n(f, "bufferDays", 3),
     autoApproveScripts: b(f, "autoApproveScripts"), autoApproveVideos: b(f, "autoApproveVideos"),
     platforms: f.getAll("platforms").map(String).join(",") || "instagram,tiktok,facebook",
-    ayrshareProfileKey: s(f, "ayrshareProfileKey"),
+    ayrshareProfileKey: s(f, "ayrshareProfileKey"), publishMode: s(f, "publishMode") === "ayrshare" ? "ayrshare" : "manual",
   };
   const id = s(f, "id");
   const brand = id ? await db.brand.update({ where: { id }, data }) : await db.brand.create({ data });

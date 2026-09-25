@@ -1,5 +1,15 @@
 # UGC Contentmaschine
 
+## Ausbaustufen
+
+| Stufe | Umfang | Status |
+|---|---|---|
+| **1 · Video-Maschine** | Trends → Scripts → Avatar/B-Roll → fertiges Reel → **Download + Caption, manuell posten** | ✅ Standard (`Veröffentlichung = Manuell`) |
+| 2 · Auto-Posting | Freigegebene Reels automatisch einplanen (Ayrshare, später günstigere API) | eingebaut, pro Marke zuschaltbar |
+| 3 · Performance-Loop | Views/Watchtime zurück ins System → bessere Hooks | geplant |
+
+Stufe 1 braucht nur: **Claude + Higgsfield + ElevenLabs** (kein Posting-Tool).
+
 Multi-Marken-System: Pro Kunde **täglich automatisch virale UGC-Reels (30–60 s)** – von Trend-Analyse über Storytelling-Script, KI-Influencer-Avatar, B-Roll, Schnitt mit Untertiteln bis zur Planung auf Instagram, TikTok, Facebook.
 
 ## System-Flow
@@ -22,7 +32,9 @@ Run ─► Apify (optional): echte virale TikTok/IG-Posts zu Nischen-Hashtags
         │
    [Gate 2: Video-Freigabe]  (auto möglich)
         │
-   Slot-Planer (Posting-Zeiten der Marke) ─► Ayrshare (Profil pro Kunde) ─► IG · TikTok · FB
+   Stufe 1: „Fertig zum Posten“ – Termin-Vorschlag (Posting-Zeiten der Marke), ⬇ Reel, 📋 Caption,
+            selbst posten → „✓ Gepostet“ → Autopilot füllt Vorlauf nach
+   Stufe 2: Ayrshare (Profil pro Kunde) ─► IG · TikTok · FB automatisch
 ```
 
 **Länger als 15 s:** Ein Reel besteht aus 4–8 Segmenten. Avatar-Segmente (≤ 15 s, Speak-Limit) wechseln mit B-Roll-Segmenten; ffmpeg schneidet alles zu einem Reel. Zu lange Avatar-Texte werden automatisch an Satzgrenzen geteilt.
@@ -33,7 +45,7 @@ Run ─► Apify (optional): echte virale TikTok/IG-Posts zu Nischen-Hashtags
 
 | Seite | Funktion |
 |---|---|
-| `/` | Kanban aller Marken (Filter pro Marke), Freigabe einzeln/alle, Video-Preview, Kosten pro Reel |
+| `/` | Kanban aller Marken: Script-Freigabe → Produktion → Video-Freigabe → Fertig zum Posten (Download, Caption, ✓ Gepostet) → Gepostet |
 | `/brands` | Kunden anlegen: Branding, Nische, Content-Säulen, Formate, Reel-Länge, Autopilot, Posts/Tag, Posting-Zeiten, Ayrshare-Profil |
 | `/brands/[id]` | **Avatar-Studio**: Aussehen beschreiben → 4 Higgsfield-Soul-Kandidaten → auswählen · Stimme aus ElevenLabs-Liste · Kalkulation |
 | `/content/[id]` | Segment-Editor (Avatar/B-Roll, Text, Visual, Overlay), Caption, Termin, Verlauf |
