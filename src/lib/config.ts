@@ -6,17 +6,18 @@ export const cfg = {
   hf: {
     credentials: env("HF_CREDENTIALS"),
     baseUrl: env("HF_BASE_URL", "https://api.higgsfield.ai"),
-    endpoint: env("HF_VIDEO_ENDPOINT", "/v1/speak/higgsfield"),
-    quality: env("HF_QUALITY", "high") as "mid" | "high",
+    speakEndpoint: env("HF_SPEAK_ENDPOINT", "/v1/speak/higgsfield"),
+    imageEndpoint: env("HF_IMAGE_ENDPOINT", "/v1/text2image/soul"),
+    i2vEndpoint: env("HF_I2V_ENDPOINT", "/v1/image2video/dop"),
+    i2vModel: env("HF_I2V_MODEL", "dop-turbo"),
+    quality: env("HF_QUALITY", "mid") as "mid" | "high",
   },
   eleven: { key: env("ELEVENLABS_API_KEY"), model: env("ELEVENLABS_MODEL", "eleven_multilingual_v2") },
-  ayrshare: { key: env("AYRSHARE_API_KEY"), profileKey: env("AYRSHARE_PROFILE_KEY") },
+  ayrshare: { key: env("AYRSHARE_API_KEY") },
+  apify: { token: env("APIFY_TOKEN") },
   publicBaseUrl: env("PUBLIC_BASE_URL"),
-  autoApproveScripts: env("AUTO_APPROVE_SCRIPTS") === "true",
-  autoApproveVideos: env("AUTO_APPROVE_VIDEOS") === "true",
-  postSlots: env("POST_SLOTS", "11:30,18:00").split(",").map((s) => s.trim()).filter(Boolean),
-  timezone: env("TIMEZONE", "Europe/Berlin"),
   workerIntervalSec: Number(env("WORKER_INTERVAL_SEC", "20")),
-  autoRunCron: env("AUTO_RUN_CRON"),
-  autoRunNiche: env("AUTO_RUN_NICHE"),
+  // Untertitel-Font (muss auf dem Server installiert sein)
+  subtitleFont: env("SUBTITLE_FONT", "DejaVu Sans"),
+  musicUrl: env("BACKGROUND_MUSIC_URL"), // optional: Default-Musik (leise unterlegt)
 };

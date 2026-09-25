@@ -1,87 +1,99 @@
 # UGC Contentmaschine
 
-Idee → Trend-Analyse → Scripts (Branding + fester KI-Influencer) → Voiceover → Higgsfield-Avatar-Video → Freigabe → Auto-Planung auf Instagram, TikTok, Facebook. Alles im Dashboard, Worker läuft im Hintergrund.
+Multi-Marken-System: Pro Kunde **täglich automatisch virale UGC-Reels (30–60 s)** – von Trend-Analyse über Storytelling-Script, KI-Influencer-Avatar, B-Roll, Schnitt mit Untertiteln bis zur Planung auf Instagram, TikTok, Facebook.
 
 ## System-Flow
 
 ```
-[Run: Nische X] ──► Claude + Web Search: virale/trendende Themen, Formate, Hooks, Hashtags
+                ┌──────────── Worker (alle 20 s) ────────────┐
+Autopilot ──► pro Marke: Pipeline < postsPerDay × Vorlauf?  → neuer Run
+                                                             │
+Run ─► Apify (optional): echte virale TikTok/IG-Posts zu Nischen-Hashtags
+    ─► Claude + Websuche: Trends, Formate, Hooks, Retention-Tricks
+    ─► Claude: count+2 Reel-Scripts (Marke, Persona, Formate, keine Wiederholung) → Top-N nach Viral-Score
         │
-        ▼
-Claude (Structured Output): N Scripts im Marken-Ton + Avatar-Persona (5/10/15 s)
+   [Gate 1: Script-Freigabe]  (auto möglich)
         │
-        ▼
- ┌─ GATE 1: Script-Freigabe (Dashboard, editierbar)   ← AUTO_APPROVE_SCRIPTS=true überspringt
+   pro Segment:  ElevenLabs (feste Stimme + Wort-Timings)
+     🎤 avatar → Higgsfield Speak (Avatar-Bild + Audio → Lip-Sync, ≤15 s)
+     🎬 broll  → Higgsfield Soul (Szene, Avatar als Referenz) → DoP Image-to-Video
         │
-        ▼
-ElevenLabs TTS (feste Voice-ID) ─► Higgsfield CDN-Upload ─► Higgsfield Speak (Avatar-Bild + Audio → Lip-Sync-UGC-Video)
-        │                                                      (Webhook oder Polling)
-        ▼
- ┌─ GATE 2: Video-Freigabe (Preview, Neu rendern)     ← AUTO_APPROVE_VIDEOS=true überspringt
+   ffmpeg: 9:16-Schnitt · Voiceover · Untertitel (Wort-Highlight) · Text-Overlays · Musik
         │
-        ▼
-Slot-Planer (POST_SLOTS, Europe/Berlin) ─► Ayrshare API ─► IG Reels · TikTok · FB Reels (geplant)
+   [Gate 2: Video-Freigabe]  (auto möglich)
+        │
+   Slot-Planer (Posting-Zeiten der Marke) ─► Ayrshare (Profil pro Kunde) ─► IG · TikTok · FB
 ```
 
-Status: `SCRIPT_REVIEW → SCRIPT_APPROVED → VOICING → RENDERING → VIDEO_REVIEW → VIDEO_APPROVED → PUBLISHING → SCHEDULED` (+ `FAILED` mit 3 Auto-Retries, `REJECTED`).
+**Länger als 15 s:** Ein Reel besteht aus 4–8 Segmenten. Avatar-Segmente (≤ 15 s, Speak-Limit) wechseln mit B-Roll-Segmenten; ffmpeg schneidet alles zu einem Reel. Zu lange Avatar-Texte werden automatisch an Satzgrenzen geteilt.
 
-## Stack
+**Formate:** storytelling · problem_solution · tips_list · myth_vs_fact · pov · testimonial · behind_the_scenes · hot_take · reaction (pro Marke wählbar).
 
-| Baustein | Tool |
+## Dashboard
+
+| Seite | Funktion |
 |---|---|
-| Dashboard + API | Next.js 15 (App Router, Server Actions) |
-| DB | Prisma · SQLite (MVP) → Postgres/Supabase: `provider = "postgresql"` |
-| Trends + Scripts | Claude API (`web_search`, Structured Outputs) |
-| Stimme | ElevenLabs (feste Voice-ID pro Avatar) |
-| Video | Higgsfield API `/v1/speak/higgsfield` (Endpoint per `HF_VIDEO_ENDPOINT` tauschbar) |
-| Publishing | Ayrshare (1 API für IG/TikTok/FB inkl. Scheduling) |
-| Background | `worker/index.ts` (Loop + Cron-Auto-Runs) oder `/api/tick` per externem Cron |
+| `/` | Kanban aller Marken (Filter pro Marke), Freigabe einzeln/alle, Video-Preview, Kosten pro Reel |
+| `/brands` | Kunden anlegen: Branding, Nische, Content-Säulen, Formate, Reel-Länge, Autopilot, Posts/Tag, Posting-Zeiten, Ayrshare-Profil |
+| `/brands/[id]` | **Avatar-Studio**: Aussehen beschreiben → 4 Higgsfield-Soul-Kandidaten → auswählen · Stimme aus ElevenLabs-Liste · Kalkulation |
+| `/content/[id]` | Segment-Editor (Avatar/B-Roll, Text, Visual, Overlay), Caption, Termin, Verlauf |
+| `/runs` | Manuelle Runs (Aktionen/Themen), Trend-Analyse einsehen |
+| `/costs` | Kosten pro Marke / Anbieter / Reel (Monat) |
+
+## Kosten (Schätzung, Stand 09/2026)
+
+**Variabel pro Reel (40 s, `HF_QUALITY=mid`):**
+
+| Posten | ca. |
+|---|---|
+| Higgsfield Speak (2–3 Avatar-Szenen, ~22 s) | 2,50–4,00 $ |
+| Higgsfield Soul + DoP (4 B-Roll-Clips) | 1,50–3,50 $ |
+| ElevenLabs Voiceover | 0,10–0,20 $ |
+| Claude Research + Scripts (anteilig) | 0,15–0,40 $ |
+| **Summe** | **≈ 4–8 $ / Reel** → 1 Reel/Tag ≈ **120–240 $ / Monat / Marke** |
+
+`HF_QUALITY=high` ≈ 2–4× teurer bei Speak. Günstiger: weniger Avatar-Sekunden, mehr B-Roll.
+
+**Fix pro Monat (ca., Preise der Anbieter prüfen):** Ayrshare (1 Profil ab ~149 $, Business für mehrere Kunden deutlich mehr) · ElevenLabs Creator 22 $ / Pro 99 $ · Higgsfield-Plan/Credits nach Verbrauch · Apify optional ~0–49 $ · Hosting (Railway/Render/VPS) 10–25 $.
+
+Die App trackt echte Claude-Kosten (Token-Usage) und schätzt Higgsfield/ElevenLabs über Preis-Variablen (`PRICE_*` in `.env`) → nach den ersten Reels mit dem Higgsfield-Credit-Verbrauch abgleichen.
+
+**Agentur-Rechnung:** 30 Reels/Monat ≈ 150–300 $ Tool-Kosten pro Kunde → Verkaufspreis z.B. 990–1.990 €/Monat.
 
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env        # Keys eintragen (MOCK_MODE=true = Demo ohne Keys)
+cp .env.example .env        # Keys eintragen (MOCK_MODE=true = Demo ohne Keys, Schnitt läuft echt)
 npm run db:push && npm run db:seed
 npm run dev                 # Dashboard: http://localhost:3000
-npm run worker              # Hintergrund-Pipeline (zweites Terminal)
+npm run worker              # Hintergrund: Autopilot + Pipeline
 ```
 
-1. **/settings** – Marke (Angebot, Zielgruppe, Ton, CTA, Hashtags, Regeln) + Avatar (Persona, Bild-URL, ElevenLabs Voice-ID).
-   - Avatar-Bild: in Higgsfield (Soul ID / Soul) konsistenten Influencer generieren, 9:16, Gesicht frontal, öffentliche URL.
-2. **/runs** – Nische eingeben → Run starten.
-3. **/** – Scripts freigeben/editieren → Videos prüfen → freigeben → wird automatisch geplant.
+1. `/brands` → Marke anlegen (Nische, Formate, Posting-Zeiten, Ayrshare Profile-Key).
+2. Avatar: Aussehen + Persona → „4 Avatar-Bilder generieren“ → Bild anklicken → Stimme wählen.
+3. ⚡ Autopilot an → ab jetzt hält der Worker `Posts/Tag × Vorlauf` Reels in der Pipeline. Freigaben im Board – oder Auto-Freigabe aktivieren = 0 Klicks.
 
 ## Keys
 
 | Variable | Woher |
 |---|---|
 | `ANTHROPIC_API_KEY` | console.anthropic.com |
-| `HF_CREDENTIALS` | open.higgsfield.ai → API Keys, Format `KEY_ID:KEY_SECRET` |
-| `ELEVENLABS_API_KEY` | elevenlabs.io → Profile → API Key |
-| `AYRSHARE_API_KEY` | app.ayrshare.com (IG/TikTok/FB dort verbinden). `AYRSHARE_PROFILE_KEY` für Kunden-Profile |
+| `HF_CREDENTIALS` | open.higgsfield.ai → API Keys, `KEY_ID:KEY_SECRET` |
+| `ELEVENLABS_API_KEY` | elevenlabs.io → API Keys |
+| `AYRSHARE_API_KEY` | app.ayrshare.com (Profile-Key pro Kunde im Dashboard) |
+| `APIFY_TOKEN` (optional) | apify.com – echte virale Daten |
 
-## Vollautomatik (0 Klicks)
+## Deployment (dauerhaft im Hintergrund)
 
-```env
-AUTO_RUN_CRON=0 6 * * 1-5      # werktags 6:00 neuer Run
-AUTO_RUN_NICHE=Fitness für Mütter
-AUTO_APPROVE_SCRIPTS=true
-AUTO_APPROVE_VIDEOS=true
-POST_SLOTS=11:30,18:00
-```
-
-## Deployment
-
-- **Railway/Render/VPS**: Web-Service `npm run build && npm start` + Worker-Service `npm run worker`, Postgres.
-- **Vercel**: nur Web; `/api/tick` per Vercel Cron / n8n / Make alle 1–5 Min aufrufen (`Authorization: Bearer $CRON_SECRET`).
-- `PUBLIC_BASE_URL` setzen → Higgsfield meldet fertige Videos per Webhook (`/api/webhooks/higgsfield`).
+- **Docker/Railway/Render**: ein Image, zwei Services: Web (`CMD` default) + Worker (`npm run worker`), gemeinsames Volume `/data`, Postgres (`provider = "postgresql"`).
+- `PUBLIC_BASE_URL` setzen → Higgsfield-Webhooks + fertige Reels werden direkt von der App an Ayrshare ausgeliefert (`/api/media/...`). Ohne: Upload aufs Higgsfield-CDN.
 - `DASHBOARD_PASSWORD` setzen (Basic Auth).
+- Serverless (Vercel) nur mit externem Worker – Schnitt braucht ffmpeg + Dateisystem.
 
-## Grenzen / Next Steps
+## Next Steps
 
-- Speak-Modell: max. 15 s pro Clip → längere Videos: Script in Segmente splitten + ffmpeg-Concat.
-- Higgsfield-Video-URLs ggf. in eigenen Storage (S3/Supabase Storage) kopieren, bevor gepostet wird.
-- Untertitel/Branding-Overlay: ffmpeg/Creatomate/Canva-Autofill nach dem Rendering einhängen.
-- Performance-Loop: Ayrshare Analytics zurück in DB → beste Hooks in den Script-Prompt einspeisen.
-- Multi-Client (Agentur): `Brand` pro Kunde + `AYRSHARE_PROFILE_KEY` pro Marke.
+- Performance-Loop: Ayrshare-Analytics (Views, Watchtime) zurück in DB → Top-Hooks/Formate in den Script-Prompt.
+- Higgsfield Soul ID (trainierter Charakter) für 100 % konsistente B-Roll mit dem Avatar.
+- ElevenLabs Voice Design direkt im Avatar-Studio.
+- Kunden-Login mit Freigabe-Link pro Marke.

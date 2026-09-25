@@ -10,8 +10,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <nav>
           <b>⚡ UGC Contentmaschine</b>
           <Link href="/">Pipeline</Link>
+          <Link href="/brands">Marken & Avatare</Link>
           <Link href="/runs">Runs / Ideen</Link>
-          <Link href="/settings">Marke & Avatar</Link>
+          <Link href="/costs">Kosten</Link>
         </nav>
         <main>{children}</main>
       </body>

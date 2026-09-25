@@ -1,2 +1,2 @@
 /** @type {import('next').NextConfig} */
-export default { serverExternalPackages: ["@prisma/client"] };
+export default { serverExternalPackages: ["@prisma/client", "ffmpeg-static"] };

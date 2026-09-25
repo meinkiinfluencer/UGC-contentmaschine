@@ -8,75 +8,112 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Eine Marke = ein Kunde. Alles (Avatare, Runs, Content, Kosten, Posting-Profil) hängt daran.
 model Brand {
-  id          String  @id @default(cuid())
-  name        String
-  description String  // Was verkauft/macht die Marke
-  tone        String  // Tonalität, z.B. "locker, du-Form, ehrlich"
-  audience    String  // Zielgruppe
-  cta         String  // Standard Call-to-Action
-  hashtags    String  // Basis-Hashtags, kommagetrennt
-  rules       String  @default("") // Dos & Don'ts
-  language    String  @default("de")
-  avatars     Avatar[]
-  runs        Run[]
+  id                 String    @id @default(cuid())
+  name               String
+  description        String    // Was verkauft/macht die Marke
+  tone               String    // Tonalität
+  audience           String    // Zielgruppe
+  cta                String    // Standard Call-to-Action
+  hashtags           String    // Basis-Hashtags, kommagetrennt
+  rules              String    @default("") // Dos & Don'ts
+  language           String    @default("de")
+  // Content-Strategie
+  niche              String    @default("")  // Nische für Auto-Runs
+  goal               String    @default("")  // z.B. Leads für Erstgespräch
+  pillars            String    @default("")  // Content-Säulen, eine pro Zeile
+  formats            String    @default("storytelling,problem_solution,tips_list,myth_vs_fact,pov,testimonial,behind_the_scenes")
+  targetSeconds      Int       @default(40)  // Ziel-Länge Reel
+  // Autopilot
+  active             Boolean   @default(true)
+  autopilot          Boolean   @default(false) // täglich automatisch Ideen -> Posts
+  postsPerDay        Int       @default(1)
+  postSlots          String    @default("18:00") // HH:MM, kommagetrennt
+  timezone           String    @default("Europe/Berlin")
+  bufferDays         Int       @default(3)     // so viele Tage Content im Voraus produzieren
+  autoApproveScripts Boolean   @default(false)
+  autoApproveVideos  Boolean   @default(false)
+  // Publishing
+  platforms          String    @default("instagram,tiktok,facebook")
+  ayrshareProfileKey String    @default("") // Ayrshare Business: ein Profil pro Kunde
+  createdAt          DateTime  @default(now())
+  avatars            Avatar[]
+  runs               Run[]
+  contents           Content[]
+  costs              Cost[]
 }
 
 model Avatar {
-  id           String  @id @default(cuid())
-  name         String
-  persona      String  // Charakter/Story des Influencers
-  imageUrl     String  // Festes Avatar-Bild (Higgsfield Soul / eigenes Foto, öffentlich erreichbar)
-  voiceId      String  // ElevenLabs Voice-ID (feste Stimme)
-  motionPrompt String  @default("UGC selfie video, handheld phone camera, natural lighting, person talking directly to camera, authentic, subtle gestures")
+  id           String   @id @default(cuid())
   brandId      String
-  brand        Brand   @relation(fields: [brandId], references: [id])
+  brand        Brand    @relation(fields: [brandId], references: [id])
+  name         String
+  persona      String   // Charakter/Story/Sprechstil
+  look         String   @default("") // Aussehen (Prompt-Basis für Avatar-Generierung)
+  imageUrl     String   @default("") // gewähltes Avatar-Bild (Gesicht frontal, 9:16)
+  candidates   String   @default("[]") // JSON: generierte Bild-Kandidaten
+  genRequestId String?  // laufender Higgsfield-Soul-Job
+  voiceId      String   @default("") // ElevenLabs Voice-ID
+  motionPrompt String   @default("UGC selfie video, handheld phone camera, natural lighting, person talking directly to camera, authentic, subtle gestures")
+  createdAt    DateTime @default(now())
   contents     Content[]
 }
 
 model Run {
-  id         String    @id @default(cuid())
-  niche      String
-  goal       String    @default("")
-  platforms  String    @default("instagram,tiktok,facebook")
-  count      Int       @default(3)       // Anzahl Videos pro Run
-  status     String    @default("NEW")   // NEW | RESEARCHING | DONE | FAILED
-  research   String?   // JSON: Trends/Hooks/Formate
-  error      String?
-  brandId    String
-  brand      Brand     @relation(fields: [brandId], references: [id])
-  avatarId   String
-  createdAt  DateTime  @default(now())
-  contents   Content[]
+  id        String    @id @default(cuid())
+  brandId   String
+  brand     Brand     @relation(fields: [brandId], references: [id])
+  avatarId  String
+  niche     String
+  goal      String    @default("")
+  platforms String    @default("instagram,tiktok,facebook")
+  count     Int       @default(3)
+  source    String    @default("manual") // manual | autopilot
+  status    String    @default("NEW")    // NEW | RESEARCHING | DONE | FAILED
+  research  String?
+  error     String?
+  createdAt DateTime  @default(now())
+  contents  Content[]
 }
 
 model Content {
-  id           String    @id @default(cuid())
-  runId        String
-  run          Run       @relation(fields: [runId], references: [id])
-  avatarId     String
-  avatar       Avatar    @relation(fields: [avatarId], references: [id])
-  // Status-Maschine – siehe src/lib/status.ts
-  status       String    @default("SCRIPT_REVIEW")
-  title        String
-  trend        String    // Trend/Idee, auf der das Video basiert
-  hook         String
-  script       String    // Gesprochener Text (Voiceover)
-  scene        String    // Szenen-/Motion-Prompt für Higgsfield
-  caption      String
-  hashtags     String
-  duration     Int       @default(15) // 5 | 10 | 15 Sekunden
-  audioUrl     String?
-  hfRequestId  String?
-  videoUrl     String?
-  platforms    String    @default("instagram,tiktok,facebook")
-  scheduledAt  DateTime?
-  publishId    String?
-  error        String?
-  attempts     Int       @default(0)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  events       Event[]
+  id          String    @id @default(cuid())
+  brandId     String
+  brand       Brand     @relation(fields: [brandId], references: [id])
+  runId       String
+  run         Run       @relation(fields: [runId], references: [id])
+  avatarId    String
+  avatar      Avatar    @relation(fields: [avatarId], references: [id])
+  status      String    @default("SCRIPT_REVIEW") // siehe src/lib/status.ts
+  format      String    @default("storytelling")
+  title       String
+  trend       String
+  hook        String
+  segments    String    @default("[]") // JSON Segment[] – siehe src/lib/segments.ts
+  caption     String
+  hashtags    String
+  videoUrl    String?   // fertig geschnittenes Reel (öffentlich)
+  platforms   String    @default("instagram,tiktok,facebook")
+  scheduledAt DateTime?
+  publishId   String?
+  error       String?
+  attempts    Int       @default(0)
+  costUsd     Float     @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  events      Event[]
+}
+
+model Cost {
+  id        String   @id @default(cuid())
+  brandId   String
+  brand     Brand    @relation(fields: [brandId], references: [id])
+  contentId String?
+  provider  String   // anthropic | elevenlabs | higgsfield | apify
+  item      String
+  usd       Float
+  createdAt DateTime @default(now())
 }
 
 model Event {
@@ -87,9 +124,4 @@ model Event {
   type      String
   message   String
   createdAt DateTime @default(now())
-}
-
-model Setting {
-  key   String @id
-  value String
 }
